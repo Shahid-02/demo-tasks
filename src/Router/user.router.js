@@ -7,7 +7,9 @@ const {
     allUserAreGet,
     userUpdate,
     deleteUser,
-    userAndUserProfile } = require('../Controllers/user.controllers.js')
+    userLoginWithGoogle,
+    googleCallback ,
+    userSave  } = require('../Controllers/user.controllers.js')
 
 const authenticateToken = require('../auth/jwt.auth.js')
 
@@ -19,6 +21,8 @@ userRouter.post('/register',register)
 .patch('/:id' ,authenticateToken, userUpdate)
 .delete('/:id', authenticateToken,deleteUser)
 // .get('' , authenticateToken , userAndUserProfile);
+.get('/auth/google',userLoginWithGoogle)
+
 
 
 

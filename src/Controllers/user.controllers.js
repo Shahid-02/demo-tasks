@@ -2,6 +2,7 @@ const User = require('../models/user.models.js');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const UserProfile = require('../models/profile.model.js');
+const passport = require('passport');
 
 
 
@@ -115,7 +116,7 @@ const userUpdate = async (req, res) => {
         const { email, username } = req.body;
 
         const user = await User.findOne({
-            where  : {id}
+            where: { id }
         })
 
         if (!user) {
@@ -171,25 +172,73 @@ const deleteUser = async (req, res) => {
 
 const userAndUserProfile = async (req, res) => {
 
-     try {
-         const user = await User.findAll({
-             include: [{
-                 model: UserProfile,
-                 as: 'userProfiles'
-             }]
-         })
+    try {
+        const user = await User.findAll({
+            include: [{
+                model: UserProfile,
+                as: 'userProfiles'
+            }]
+        })
 
-         res.status(201).json({
-            massage : 'user and user profile are fetched successfully',
+        res.status(201).json({
+            massage: 'user and user profile are fetched successfully',
             user
-         })
-        
-     } catch (error) {
-         console.log(error);
-         
-     }
+        })
+
+    } catch (error) {
+        console.log(error);
+
+    }
 
 };
+
+const userLoginWithGoogle = async (req, res, next) => {
+    passport.authenticate('google', { scope: ['email', 'profile'] })(req, res, next);
+  
+    
+}
+
+const googleCallback = async (req, res, next) => {
+    passport.authenticate('google', async (err, user, info) => {
+        if (err) {
+            return next(err); 
+        }
+        if (!user) {
+            return res.redirect('/auth/google/failure');
+        }
+
+        const exitUser = await User.findOne({
+            where: { email: user.email }
+        });
+
+        let token;
+        if (exitUser) {
+            const payload = { id: exitUser.id};
+            token = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '24h' });
+
+            return res.status(200).json({
+                message: 'User authenticated successfully',
+                token,
+            });
+        }
+
+        const newUser = await User.create({
+            username: user.displayName,
+            email: user.email,
+            password : ''
+        });
+
+        const payload = { id: newUser.id };
+        token = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '24h' });
+
+        return res.status(200).json({
+            message: 'User authenticated successfully',
+            newUser,
+            token,
+        });
+    })(req, res, next);
+}
+
 
 module.exports = {
     register,
@@ -198,7 +247,10 @@ module.exports = {
     allUserAreGet,
     userUpdate,
     deleteUser,
-    userAndUserProfile
+    userAndUserProfile,
+    userLoginWithGoogle,
+    googleCallback,
+    userSave
 };
 
 
