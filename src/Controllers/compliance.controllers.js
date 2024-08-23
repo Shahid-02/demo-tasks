@@ -24,7 +24,9 @@ const createCompliance = async (req, res) => {
         }
 
 
-        await sendEmail(user, report_type, content);
+        await sendEmail(to = user.email, 
+            subject = `Compliance Report Created: ${report_type}`, 
+            text = `Content: ${content}\n\nThank you!`);
 
         res.status(201).json({
             message: 'Compliance report created and email sent:ls -a',
@@ -32,12 +34,12 @@ const createCompliance = async (req, res) => {
         });
 
     } catch (error) {
-       console.log(error);
-       res.status(501).json({
-        massage : "complice create failed"
-        + error.message
-       })
-       
+        console.log(error);
+        res.status(501).json({
+            massage: "complice create failed"
+                + error.message
+        })
+
     }
 }
 
