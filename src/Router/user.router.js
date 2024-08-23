@@ -9,7 +9,9 @@ const {
     deleteUser,
     userLoginWithGoogle,
     googleCallback ,
-    userSave  } = require('../Controllers/user.controllers.js')
+    logoutUser,
+    forgetPassword,
+    verifyOtp} = require('../Controllers/user.controllers.js')
 
 const authenticateToken = require('../auth/jwt.auth.js')
 
@@ -20,9 +22,11 @@ userRouter.post('/register',register)
 .get('' ,authenticateToken,allUserAreGet)
 .patch('/:id' ,authenticateToken, userUpdate)
 .delete('/:id', authenticateToken,deleteUser)
-// .get('' , authenticateToken , userAndUserProfile);
 .get('/auth/google',userLoginWithGoogle)
-
+.get('/auth/google/callback',googleCallback)
+.post('/logout'  , authenticateToken, logoutUser)
+.post('/forgetPassword' , authenticateToken, forgetPassword)
+.post('/verifyOtp' , authenticateToken, verifyOtp)
 
 
 

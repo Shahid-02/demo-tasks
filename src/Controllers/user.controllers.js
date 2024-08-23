@@ -3,6 +3,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const UserProfile = require('../models/profile.model.js');
 const passport = require('passport');
+const crypto = require("crypto");
+const sendEmail = require('../helpers/emailService.js');
 
 
 
@@ -19,7 +21,7 @@ const register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const user = await User.create({ username, email, password: hashedPassword });
-        // await UserProfile.create({first_name, last_name, user_id: user.id})
+        await UserProfile.create({first_name, last_name, user_id: user.id})
 
         res.status(201).json({
             message: "User created successfully",
@@ -113,7 +115,7 @@ const userUpdate = async (req, res) => {
     try {
         const id = req.params.id;
 
-        const { email, username } = req.body;
+        const { email, username,password } = req.body;
 
         const user = await User.findOne({
             where: { id }
@@ -125,7 +127,7 @@ const userUpdate = async (req, res) => {
             });
         }
 
-        const updateUser = await user.update({ username, email });
+        const updateUser = await user.update({ username, email,password });
 
         return res.status(200).json({
             message: 'User update successful',
@@ -194,8 +196,6 @@ const userAndUserProfile = async (req, res) => {
 
 const userLoginWithGoogle = async (req, res, next) => {
     passport.authenticate('google', { scope: ['email', 'profile'] })(req, res, next);
-  
-    
 }
 
 const googleCallback = async (req, res, next) => {
@@ -207,13 +207,19 @@ const googleCallback = async (req, res, next) => {
             return res.redirect('/auth/google/failure');
         }
 
+        const email = user.emails && user.emails[0] && user.emails[0].value;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email not found in Google profile' });
+        }
+
         const exitUser = await User.findOne({
-            where: { email: user.email }
+            where: { email: email }
         });
 
         let token;
         if (exitUser) {
-            const payload = { id: exitUser.id};
+            const payload = { id: exitUser.id };
             token = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '24h' });
 
             return res.status(200).json({
@@ -224,8 +230,8 @@ const googleCallback = async (req, res, next) => {
 
         const newUser = await User.create({
             username: user.displayName,
-            email: user.email,
-            password : ''
+            email: email,
+            password: ''
         });
 
         const payload = { id: newUser.id };
@@ -239,6 +245,93 @@ const googleCallback = async (req, res, next) => {
     })(req, res, next);
 }
 
+const logoutUser = (req, res, next) => {
+    req.logout((err) => {
+        if (err) {
+            return next(err);
+        }
+        req.session.destroy((err) => {
+            if (err) {
+                return next(err);
+            }
+            res.clearCookie('connect.sid');
+            res.status(200).json({
+                message: 'User logged out successfully',
+            });
+        });
+    });
+}
+
+
+const forgetPassword = async (req, res, next) => {
+    const { email } = req.body;
+
+    try {
+        const user = await User.findOne({
+            where: { email: email }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const randNumber = parseInt(crypto.randomBytes(2).toString('hex'), 16) % 10000;
+        const OTP = String(randNumber).padStart(4, '0');
+        console.log(OTP , "here");
+        
+
+        const otpToken = jwt.sign({ email, otp: OTP }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+ 
+
+        await sendEmail(
+            to =  user.email,
+            subject = `Hi ${user.email}`,
+            text =  `Your OTP for resetting password is ${OTP}`
+        );
+
+        res.status(200).json({
+            message: 'OTP sent successfully',
+            otpToken
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "Password reset failed"
+        });
+    }
+}
+
+
+const verifyOtp = async (req, res) => {
+    const { otpToken, otp } = req.body;
+
+    try {
+        const decoded = jwt.verify(otpToken, process.env.ACCESS_TOKEN_SECRET);
+
+        console.log(decoded , "otp here");
+        
+
+        if (decoded.otp === otp) {
+            
+            res.status(200).json({
+                message: 'OTP verified successfully, you can now reset your password'
+            });
+        } else {
+            res.status(400).json({
+                message: 'Invalid OTP'
+            });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "OTP verification failed"
+        });
+    }
+}
+
+
+
 
 module.exports = {
     register,
@@ -250,7 +343,9 @@ module.exports = {
     userAndUserProfile,
     userLoginWithGoogle,
     googleCallback,
-    userSave
+    logoutUser,
+    forgetPassword,
+    verifyOtp
 };
 
 

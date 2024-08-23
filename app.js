@@ -6,9 +6,6 @@ const { sequelize } = require('./src/dbConfig/dbConfig.js');
 const complianceRouter = require('./src/Router/compliance.router.js');
 const passport = require('./src/Controllers/passport-google-oauth.js');
 const session = require('express-session');
-const {Router} = require('express')
-const router = Router()
-const {googleCallback} = require('./src/Controllers/user.controllers.js')
 
 
 const app = express();
